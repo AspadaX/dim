@@ -11,10 +11,11 @@ pub fn add(left: u64, right: u64) -> u64 {
 #[cfg(test)]
 mod tests {
     use anyhow::Error;
+    use async_openai::{config::OpenAIConfig, Client};
     use image::DynamicImage;
     use llm::instantiate_client;
     use prompt::load_prompts;
-    use vectorizations::ImageVectorization;
+    use vectorizations::{vectorize_image_concurrently, ImageVectorization};
 
     use super::*;
 
@@ -24,18 +25,20 @@ mod tests {
         assert_eq!(result, 4);
     }
     
-    #[test]
-    fn generate_one_prompt() -> Result<(), Error> {
+    #[tokio::test]
+    async fn generate_one_prompt() -> Result<(), Error> {
     	let prompts: Vec<String> = load_prompts(
-     		"/Users/xinyubao/Documents/aesthetic-prototype/prompts_clothes"
+     		"/Users/xinyubao/Downloads/prompts"
      	)?;
 	    let image: DynamicImage = image::ImageReader::open(
 			"/Users/xinyubao/Downloads/clothing-dataset/images/0a3e62e3-fac5-4648-9da2-f6bc4074ee31.jpg"
 		)?
 			.decode()?;
-		let client = instantiate_client(None)?;
+		let client: Client<
+		  OpenAIConfig
+		> = instantiate_client::<OpenAIConfig>(None)?;
 		
-    	let vector: vector::Vector<DynamicImage> = vector::Vector::new(
+    	let mut vector: vector::Vector<DynamicImage> = vector::Vector::new(
      		4, 
        		vec![
          		"accessory_features".to_string(),
@@ -46,7 +49,15 @@ mod tests {
            	image
      	);
      
-     	assert_eq!(vector.vectorize_single_prompt(client, image, prompt), vector);
+        vectorize_image_concurrently::<OpenAIConfig>(&mut vector, client)
+            .await?;
+        
+        let new_vector: Vec<f64> = vector.get_vecotr();
+     
+     	assert_eq!(
+      		new_vector.len(),
+        	4
+      	);
      
      	Ok(())
     }
