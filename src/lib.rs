@@ -4,10 +4,6 @@ mod vector;
 mod raw_data;
 mod vectorizations;
 
-pub fn add(left: u64, right: u64) -> u64 {
-    left + right
-}
-
 #[cfg(test)]
 mod tests {
     use anyhow::Error;
@@ -15,18 +11,12 @@ mod tests {
     use image::DynamicImage;
     use llm::instantiate_client;
     use prompt::load_prompts;
-    use vectorizations::{vectorize_image_concurrently, ImageVectorization};
+    use vectorizations::vectorize_image_concurrently;
 
     use super::*;
 
-    #[test]
-    fn it_works() {
-        let result = add(2, 2);
-        assert_eq!(result, 4);
-    }
-    
     #[tokio::test]
-    async fn generate_one_prompt() -> Result<(), Error> {
+    async fn test_vectorize_an_image() -> Result<(), Error> {
     	let prompts: Vec<String> = load_prompts(
      		"/Users/xinyubao/Downloads/prompts"
      	)?;
