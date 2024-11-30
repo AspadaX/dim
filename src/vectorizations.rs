@@ -174,7 +174,7 @@ where
     // update the original vector
     let final_vector: Vec<f64> = {
         let guard = shared_vector.read().await;
-        guard.get_vecotr()
+        guard.get_vector()
     }; // guard is dropped here
     
     vector.overwrite_vector(final_vector);

@@ -73,7 +73,7 @@ impl<S> Vector<S> {
         }
     }
     
-    pub fn get_vecotr(&self) -> Vec<f64> {
+    pub fn get_vector(&self) -> Vec<f64> {
         self.vector.clone()
     }
     

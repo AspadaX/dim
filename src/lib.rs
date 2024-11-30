@@ -1,8 +1,8 @@
-mod llm;
-mod prompt;
-mod vector;
-mod raw_data;
-mod vectorizations;
+pub mod llm;
+pub mod prompt;
+pub mod vector;
+pub mod raw_data;
+pub mod vectorizations;
 
 #[cfg(test)]
 mod tests {
@@ -42,7 +42,7 @@ mod tests {
         vectorize_image_concurrently::<OpenAIConfig>(&mut vector, client)
             .await?;
         
-        let new_vector: Vec<f64> = vector.get_vecotr();
+        let new_vector: Vec<f64> = vector.get_vector();
      
      	assert_eq!(
       		new_vector.len(),
