@@ -16,7 +16,7 @@ Add this to your `Cargo.toml`:
 
 ```toml
 [dependencies]
-dim = "0.2.0"
+dim-rs = "0.2.0"
 ```
 
 ## Quick Start
