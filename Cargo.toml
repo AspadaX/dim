@@ -1,7 +1,9 @@
 [package]
 name = "dim"
-version = "0.1.0"
+version = "0.2.0"
 edition = "2021"
+authors = ["Xinyu Bao"]
+license = "MIT"
 
 [dependencies]
 anyhow = "1.0.93"
