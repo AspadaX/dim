@@ -9,6 +9,7 @@ use serde_json::Value;
 
 use crate::vector::{Vector, VectorOperations};
 
+/// Converts a DynamicImage to a base64-encoded string
 fn dynamic_image_to_base64(image: &DynamicImage) -> Result<String, Error> {
     let mut raw_image_bytes: Vec<u8> = Vec::new();
     image.write_to(
@@ -20,8 +21,9 @@ fn dynamic_image_to_base64(image: &DynamicImage) -> Result<String, Error> {
     Ok(base64_image)
 }
 
-/// for extracting the leaf values from the respnose we retrieved from
-/// the LLM, as long as it is a valid json.
+/// Recursively extracts leaf values from a JSON response retrieved from the LLM.
+/// 
+/// Takes a JSON Value and returns a Vec of all leaf values found in the structure.
 fn extract_leaf_values_recursively(value: &Value) -> Vec<Value> {
     match value {
         Value::Object(map) => map
@@ -36,6 +38,9 @@ fn extract_leaf_values_recursively(value: &Value) -> Vec<Value> {
     }
 }
 
+/// Validates that all elements in the vectorization result are non-negative.
+/// 
+/// Returns true if all elements are >= 0, false otherwise.
 fn validate_vectorization_result(vector: &Vec<f32>) -> bool {
     for element in vector {
         if element < &0.0 {
@@ -46,8 +51,9 @@ fn validate_vectorization_result(vector: &Vec<f32>) -> bool {
     true
 }
 
-/// concurrently generate results for all prompts in the struct,
-/// then gather them, and update them in the vector field of the struct
+/// Processes a single image with one prompt to generate a vector representation.
+/// 
+/// Continues retrying until valid results are obtained.
 async fn vectorize_image_single_prompt<C>(
     client: &Client<C>,
     model: &str,
@@ -115,12 +121,20 @@ where
     }
 }
 
-/// concurrently vectorize an image with any number of given prompts. 
-/// Each prompt's dimensionality is specified by how many digits that it 
-/// requires the LLM to return. 
+/// Concurrently vectorizes an image with multiple prompts.
 /// 
-/// Hence the final dimensionality of a vector is calculated by 
-/// `number of prompts * digits specified by each prompt`.
+/// # Arguments
+/// * `model` - The name/identifier of the LLM model to use
+/// * `prompts` - A vector of prompts to process concurrently
+/// * `vector` - A mutable reference to the Vector struct containing the image
+/// * `client` - The OpenAI API client
+/// 
+/// # Returns
+/// * `Result<(), Error>` - Ok(()) on success, Error on failure
+/// 
+/// Each prompt's dimensionality is specified by how many digits that it 
+/// requires the LLM to return. The final dimensionality of the vector is 
+/// calculated by `number of prompts * digits specified by each prompt`.
 pub async fn vectorize_image_concurrently<C>(
     model: &str,
     prompts: Vec<String>,
@@ -143,7 +157,7 @@ where
         let shared_client: Arc<Client<C>> = shared_client.clone();
         let shared_image: Arc<DynamicImage> = shared_image.clone();
         let shared_model: Arc<String> = shared_model.clone();
-        
+
         let task = tokio::spawn(async move {
             let subvector: Vec<f32> = vectorize_image_single_prompt(
                 shared_client.as_ref(), 
@@ -175,6 +189,9 @@ where
     Ok(())
 }
 
+/// Processes a single text string with one prompt to generate a vector representation.
+/// 
+/// Continues retrying until valid results are obtained.
 async fn vectorize_string_single_prompt<C>(
     client: &Client<C>,
     model: &str,
@@ -221,6 +238,16 @@ where
     }
 }
 
+/// Concurrently vectorizes a text string with multiple prompts.
+/// 
+/// # Arguments
+/// * `model` - The name/identifier of the LLM model to use
+/// * `prompts` - A vector of prompts to process concurrently
+/// * `vector` - A mutable reference to the Vector struct containing the text
+/// * `client` - The OpenAI API client
+/// 
+/// # Returns
+/// * `Result<(), Error>` - Ok(()) on success, Error on failure
 pub async fn vectorize_string_concurrently<C>(
     model: &str,
     prompts: Vec<String>,
@@ -243,7 +270,7 @@ where
         let shared_client: Arc<Client<C>> = shared_client.clone();
         let shared_text: Arc<String> = shared_text.clone();
         let shared_model: Arc<String> = shared_model.clone();
-        
+
         let task = tokio::spawn(async move {
             let subvector = vectorize_string_single_prompt(
                 shared_client.as_ref(),

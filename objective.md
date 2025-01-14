@@ -1,5 +1,9 @@
 mainObjective: vectorize a given input
 
+objective Prompt {
+  - provide a prompt template that the user can fill values in.
+}
+
 objective Vector {
   - hold generated vector
   - hold the input
