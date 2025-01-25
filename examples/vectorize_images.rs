@@ -1,4 +1,4 @@
-use dim::prelude::*;
+use dim_rs::prelude::*;
 use image::DynamicImage;
 use tokio;
 use anyhow::{Error, Result};

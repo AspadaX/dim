@@ -1,4 +1,4 @@
-use dim::prelude::*;
+use dim_rs::prelude::*;
 use tokio;
 use anyhow::{Error, Result};
 use async_openai;

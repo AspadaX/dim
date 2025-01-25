@@ -1,7 +1,7 @@
 #[cfg(test)]
 mod tests {
+    use dim_rs::prelude::*;
     use image::{DynamicImage, ImageBuffer, Rgba};
-    use dim::prelude::*;
 
     #[test]
     fn test_from_image() {

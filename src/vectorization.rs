@@ -40,14 +40,33 @@ fn extract_leaf_values_recursively(value: &Value) -> Vec<Value> {
 
 /// Validates that all elements in the vectorization result are non-negative.
 /// 
-/// Returns true if all elements are >= 0, false otherwise.
+/// Takes a vector slice and validates that it:
+/// - Is not empty
+/// - Contains exactly one element 
+/// - All elements are non-negative (>= 0)
+///
+/// # Arguments
+/// * `vector` - Vector slice to validate
+///
+/// # Returns 
+/// * `bool` - True if vector meets all validation criteria, false otherwise
 fn validate_vectorization_result(vector: &Vec<f32>) -> bool {
+    // Check if vector is empty
+    if vector.len() == 0 {
+        return false;
+    // Check if vector has more than one element
+    } else if vector.len() > 1 {
+        return false;
+    }
+
+    // Check if any elements are negative
     for element in vector {
         if element < &0.0 {
             return false;
         }
     }
 
+    // All validation checks passed
     true
 }
 
