@@ -44,8 +44,9 @@ async fn main() -> Result<(), Error> {
         client
     ).await?;
 
-    // Print vectorized image
-    println!("{:?}", vector.get_vector());
+    // Print vectorized result
+    println!("Vector: {:?}", vector.get_vector());
+    println!("Vector Length: {:?}", vector.get_vector().len());
     
     Ok(())
 }

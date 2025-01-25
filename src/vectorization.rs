@@ -51,8 +51,8 @@ fn extract_leaf_values_recursively(value: &Value) -> Vec<Value> {
 /// # Returns 
 /// * `bool` - True if vector meets all validation criteria, false otherwise
 fn validate_vectorization_result(vector: &Vec<f32>) -> bool {
-    // Check if vector is empty
-    if vector.len() == 0 {
+    // Return false if vector is empty
+    if vector.len() < 1 {
         return false;
     // Check if vector has more than one element
     } else if vector.len() > 1 {
@@ -82,60 +82,78 @@ async fn vectorize_image_single_prompt<C>(
 where
     C: Config + Send + Sync + 'static,
 {
-    let base64_image: String = dynamic_image_to_base64(&image)?;
-    let image: String = format!("data:image/jpeg;base64,{base64_image}");
+    let base64_image = dynamic_image_to_base64(&image)?;
+    let image_url = format!("data:image/jpeg;base64,{}", base64_image);
 
     loop {
-        let request = CreateChatCompletionRequestArgs::default()
+        let request = match CreateChatCompletionRequestArgs::default()
             .model(model)
             .response_format(ResponseFormat::JsonObject)
             .messages(vec![ChatCompletionRequestUserMessageArgs::default()
                 .content(vec![
                     ChatCompletionRequestMessageContentPartTextArgs::default()
                         .text(&prompt)
-                        .build()?
+                        .build()
+                        .map_err(|e| Error::msg(e.to_string()))?
                         .into(),
                     ChatCompletionRequestMessageContentPartImageArgs::default()
                         .image_url(
                             ImageUrlArgs::default()
-                                .url(&image)
+                                .url(&image_url)
                                 .detail(ImageDetail::High)
-                                .build()?,
+                                .build()
+                                .map_err(|e| Error::msg(e.to_string()))?,
                         )
-                        .build()?
+                        .build()
+                        .map_err(|e| Error::msg(e.to_string()))?
                         .into(),
                 ])
-                .build()?
+                .build()
+                .map_err(|e| Error::msg(e.to_string()))?
                 .into()])
-            .build()?;
+            .build()
+        {
+            Ok(req) => req,
+            Err(e) => {
+                eprintln!("Failed to build request: {}", e);
+                continue;
+            }
+        };
 
-        // Send the request and await the response
-        let response = match client
-            .chat()
-            .create(request)
-            .await {
-                Ok(result) => result,
-                Err(error) => {
-                    println!("Error: {:?}", error);
-                    continue;
-                }
-            };
+        let response = match client.chat().create(request).await {
+            Ok(res) => res,
+            Err(e) => {
+                eprintln!("API request error: {}", e);
+                continue;
+            }
+        };
 
-        // Get the content from the first choice
-        let content = &response.choices[0].message.content.clone().unwrap();
+        let content = match response.choices.get(0).and_then(|c| c.message.content.as_ref()) {
+            Some(c) => c,
+            None => {
+                eprintln!("Empty content in response");
+                continue;
+            }
+        };
 
-        // Parse the content as JSON into ResponseData
-        // data validations, if not validated, retry until succeed.
-        let result: Vec<f32> = extract_leaf_values_recursively(
-            &serde_json::from_str(content)?
-        )
+        let parsed_json = match serde_json::from_str::<Value>(content) {
+            Ok(v) => v,
+            Err(e) => {
+                eprintln!("JSON parsing failed: {}", e);
+                continue;
+            }
+        };
+
+        let leaf_values = extract_leaf_values_recursively(&parsed_json);
+        let result: Vec<f32> = leaf_values
             .into_iter()
-            .map(|score| score.as_f64().unwrap_or(0.0) as f32)
+            .filter_map(|v| v.as_f64().map(|f| f as f32))
             .collect();
 
-        // break the loop if the results are validated
         if validate_vectorization_result(&result) {
             return Ok(result);
+        } else {
+            eprintln!("Validation failed, retrying...");
         }
     }
 }
@@ -221,38 +239,57 @@ where
     C: Config + Send + Sync + 'static,
 {
     loop {
-        let request = CreateChatCompletionRequestArgs::default()
+        let request = match CreateChatCompletionRequestArgs::default()
             .model(model)
             .response_format(ResponseFormat::JsonObject)
-            .messages(
-                vec![
-                    ChatCompletionRequestUserMessageArgs::default()
-                        .content(
-                            format!("{}\n\nText to analyze: {}", prompt, text)
-                        )
-                        .build()?
-                        .into()
-                ]
-            )
-            .build()?;
+            .messages(vec![ChatCompletionRequestUserMessageArgs::default()
+                .content(format!("{}\n\nText to analyze: {}", prompt, text))
+                .build()
+                .map_err(|e| Error::msg(e.to_string()))?
+                .into()])
+            .build()
+        {
+            Ok(req) => req,
+            Err(e) => {
+                eprintln!("Failed to build request: {}", e);
+                continue;
+            }
+        };
 
-        // Send the request and await the response
-        let response = client.chat().create(request).await?;
+        let response = match client.chat().create(request).await {
+            Ok(res) => res,
+            Err(e) => {
+                eprintln!("API request error: {}", e);
+                continue;
+            }
+        };
 
-        // Get the content from the first choice
-        let content = &response.choices[0].message.content.clone().unwrap();
+        let content = match response.choices.get(0).and_then(|c| c.message.content.as_ref()) {
+            Some(c) => c,
+            None => {
+                eprintln!("Empty content in response");
+                continue;
+            }
+        };
 
-        // Parse the content as JSON into ResponseData
-        let result: Vec<f32> = extract_leaf_values_recursively(
-            &serde_json::from_str(content)?
-        )
+        let parsed_json = match serde_json::from_str::<Value>(content) {
+            Ok(v) => v,
+            Err(e) => {
+                eprintln!("JSON parsing failed: {}", e);
+                continue;
+            }
+        };
+
+        let leaf_values = extract_leaf_values_recursively(&parsed_json);
+        let result: Vec<f32> = leaf_values
             .into_iter()
-            .map(|score| score.as_f64().unwrap_or(0.0) as f32)
+            .filter_map(|v| v.as_f64().map(|f| f as f32))
             .collect();
 
-        // break the loop if the results are validated
         if validate_vectorization_result(&result) {
             return Ok(result);
+        } else {
+            eprintln!("Validation failed, retrying...");
         }
     }
 }

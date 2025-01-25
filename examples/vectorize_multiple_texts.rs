@@ -5,14 +5,24 @@ use async_openai;
 
 #[tokio::main]
 async fn main() -> Result<(), Error> {
-    // Load text
-    let test_text: String = "Hi, this is dim. I am here to vectorize whatever your want."
-        .to_string();
+    // Load multiple texts
+    let texts = vec![
+        "Hi, this is dim. I am here to vectorize whatever you want.".to_string(),
+        "The weather is beautiful today. Perfect for a walk outside.".to_string(),
+        "Artificial intelligence is transforming how we live and work.".to_string(),
+        "Remember to drink water and stay hydrated throughout the day.".to_string(),
+        "The quick brown fox jumps over the lazy dog.".to_string(),
+        "Programming is both an art and a science.".to_string(),
+        "Music has the power to change our moods instantly.".to_string(),
+        "Exercise regularly for better physical and mental health.".to_string(),
+        "Learning a new language opens doors to different cultures.".to_string(),
+        "Time management is essential for productivity.".to_string(),
+    ];
     
-    // Create a Vector object from the image
-    let mut vector: Vector<String> = Vector::from_text(
-        test_text
-    );
+    // Create Vector objects from the texts
+    let mut vectors: Vec<Vector<String>> = texts.into_iter()
+        .map(Vector::from_text)
+        .collect();
     
     // Initialize client
     let client: async_openai::Client<async_openai::config::OpenAIConfig> = async_openai::Client::with_config(
@@ -35,17 +45,45 @@ async fn main() -> Result<(), Error> {
         "Categorize the text's primary domain: 1-3 (technical/scientific), 4-6 (casual/everyday), 7-9 (artistic/creative). Format your response exactly like this example: {'domain_score': 4}".to_string(),
     ];
 
-    // Vectorize image
-    vectorize_string_concurrently(
-        "minicpm-v",
-        prompts,
-        &mut vector, 
-        client
-    ).await?;
+    // Vectorize all texts
+    for vector in &mut vectors {
+        vectorize_string_concurrently(
+            "minicpm-v",
+            prompts.clone(),
+            vector,
+            client.clone()
+        ).await?;
+    }
 
-    // Print vectorized result
-    println!("Vector: {:?}", vector.get_vector());
-    println!("Vector Length: {:?}", vector.get_vector().len());
+    // Print statistics and validate vectors
+    println!("\n=== Vectorization Results ===\n");
     
+    // Get all vector lengths
+    let lengths: Vec<usize> = vectors.iter()
+        .map(|v| v.get_vector().len())
+        .collect();
+    
+    // Validate that all vectors have the same length
+    let first_len = lengths[0];
+    let all_same_length = lengths.iter().all(|&len| len == first_len);
+
+    // Print results for each vector
+    for (i, vector) in vectors.iter().enumerate() {
+        println!("Text #{}", i + 1);
+        println!("Vector: {:?}", vector.get_vector());
+        println!("Length: {}", vector.get_vector().len());
+        println!();
+    }
+
+    // Print validation results
+    println!("=== Validation ===");
+    println!("All vectors have same length: {}", all_same_length);
+    println!("Vector dimension: {}", first_len);
+    
+    if !all_same_length {
+        println!("WARNING: Inconsistent vector lengths detected!");
+        println!("Lengths: {:?}", lengths);
+    }
+
     Ok(())
 }
