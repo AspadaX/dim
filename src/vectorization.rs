@@ -5,9 +5,58 @@ use async_openai::{config::Config, types::{ChatCompletionRequestMessageContentPa
 use base64::prelude::*;
 use futures::future::join_all;
 use image::DynamicImage;
+use rand::Rng;
 use serde_json::Value;
 
 use crate::vector::{Vector, VectorOperations};
+
+pub struct ModelParameters {
+    model: String,
+    temperature: f32,
+    seed: i64,
+}
+
+impl ModelParameters {
+    /// Creates a new instance of `ModelParameters`.
+    ///
+    /// # Arguments
+    ///
+    /// * `model` - A string representing the model name.
+    /// * `temperature` - An optional floating-point value representing the temperature setting.
+    /// * `seed` - An optional integer value representing the seed for random number generation.
+    ///
+    /// # Returns
+    ///
+    /// A new instance of `ModelParameters` with the specified model, temperature, and seed.
+    ///
+    /// If `temperature` is not provided, it defaults to 0.0.
+    /// If `seed` is not provided, a random seed is generated.
+    pub fn new(model: String, temperature: Option<f32>, seed: Option<i64>) -> Self {
+        let temperature: f32 = temperature.unwrap_or(0.0);
+        let seed: i64 = seed.unwrap_or_else(|| {
+            let mut rng = rand::rng();
+            rng.random()
+        });
+
+        Self {
+            model,
+            temperature,
+            seed,
+        }
+    }
+    
+    pub fn get_model(&self) -> String {
+        self.model.clone()
+    }
+    
+    pub fn get_temperature(&self) -> f32 {
+        self.temperature
+    }
+    
+    pub fn get_seed(&self) -> i64 {
+        self.seed
+    }
+}
 
 /// Converts a DynamicImage to a base64-encoded string
 fn dynamic_image_to_base64(image: &DynamicImage) -> Result<String, Error> {
@@ -75,9 +124,9 @@ fn validate_vectorization_result(vector: &Vec<f32>) -> bool {
 /// Continues retrying until valid results are obtained.
 async fn vectorize_image_single_prompt<C>(
     client: &Client<C>,
-    model: &str,
     image: &DynamicImage,
     prompt: String,
+    model_parameters: &ModelParameters,
 ) -> Result<Vec<f32>, Error>
 where
     C: Config + Send + Sync + 'static,
@@ -87,7 +136,9 @@ where
 
     loop {
         let request = match CreateChatCompletionRequestArgs::default()
-            .model(model)
+            .temperature(model_parameters.get_temperature())
+            .seed(model_parameters.get_seed())
+            .model(model_parameters.get_model())
             .response_format(ResponseFormat::JsonObject)
             .messages(vec![ChatCompletionRequestUserMessageArgs::default()
                 .content(vec![
@@ -173,10 +224,10 @@ where
 /// requires the LLM to return. The final dimensionality of the vector is 
 /// calculated by `number of prompts * digits specified by each prompt`.
 pub async fn vectorize_image_concurrently<C>(
-    model: &str,
     prompts: Vec<String>,
     vector: &mut Vector<DynamicImage>, 
-    client: Client<C>
+    client: Client<C>,
+    model_parameters: ModelParameters,
 ) -> Result<(), Error>
 where
     C: Config + Send + Sync + 'static,
@@ -186,21 +237,21 @@ where
 
     let shared_client: Arc<Client<C>> = Arc::new(client);
     let shared_image: Arc<DynamicImage> = Arc::new(image);
-    let shared_model: Arc<String> = Arc::new(model.to_string());
+    let shared_model: Arc<ModelParameters> = Arc::new(model_parameters);
 
     // collect all tasks for concurrent execution
     let mut tasks = Vec::new();
     for (index, prompt) in prompts.into_iter().enumerate() {
         let shared_client: Arc<Client<C>> = shared_client.clone();
         let shared_image: Arc<DynamicImage> = shared_image.clone();
-        let shared_model: Arc<String> = shared_model.clone();
+        let shared_model: Arc<ModelParameters> = shared_model.clone();
 
         let task = tokio::spawn(async move {
             let subvector: Vec<f32> = vectorize_image_single_prompt(
                 shared_client.as_ref(), 
-                shared_model.as_ref(),
                 shared_image.as_ref(), 
-                prompt
+                prompt,
+                shared_model.as_ref(),
             )
                 .await?;
             println!("thread {index} finished vectorization.");
@@ -231,16 +282,18 @@ where
 /// Continues retrying until valid results are obtained.
 async fn vectorize_string_single_prompt<C>(
     client: &Client<C>,
-    model: &str,
     text: &str,
     prompt: String,
+    model_parameters: &ModelParameters
 ) -> Result<Vec<f32>, Error>
 where
     C: Config + Send + Sync + 'static,
 {
     loop {
-        let request = match CreateChatCompletionRequestArgs::default()
-            .model(model)
+        let request: async_openai::types::CreateChatCompletionRequest = match CreateChatCompletionRequestArgs::default()
+            .temperature(model_parameters.get_temperature())
+            .seed(model_parameters.get_seed())
+            .model(model_parameters.get_model())
             .response_format(ResponseFormat::JsonObject)
             .messages(vec![ChatCompletionRequestUserMessageArgs::default()
                 .content(format!("{}\n\nText to analyze: {}", prompt, text))
@@ -305,10 +358,10 @@ where
 /// # Returns
 /// * `Result<(), Error>` - Ok(()) on success, Error on failure
 pub async fn vectorize_string_concurrently<C>(
-    model: &str,
     prompts: Vec<String>,
     vector: &mut Vector<String>,
-    client: Client<C>
+    client: Client<C>,
+    model_parameters: ModelParameters,
 ) -> Result<(), Error>
 where
     C: Config + Send + Sync + 'static,
@@ -318,21 +371,21 @@ where
 
     let shared_client: Arc<Client<C>> = Arc::new(client);
     let shared_text: Arc<String> = Arc::new(text);
-    let shared_model: Arc<String> = Arc::new(model.to_string());
+    let shared_model: Arc<ModelParameters> = Arc::new(model_parameters);
 
     // collect all tasks for concurrent execution
     let mut tasks = Vec::new();
     for (index, prompt) in prompts.into_iter().enumerate() {
         let shared_client: Arc<Client<C>> = shared_client.clone();
         let shared_text: Arc<String> = shared_text.clone();
-        let shared_model: Arc<String> = shared_model.clone();
+        let shared_model: Arc<ModelParameters> = shared_model.clone();
 
         let task = tokio::spawn(async move {
             let subvector = vectorize_string_single_prompt(
                 shared_client.as_ref(),
-                shared_model.as_ref(),
                 shared_text.as_ref(),
-                prompt
+                prompt,
+                shared_model.as_ref(),
             )
                 .await?;
             println!("thread {index} finished vectorization.");

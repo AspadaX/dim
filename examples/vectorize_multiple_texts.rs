@@ -1,4 +1,4 @@
-use dim_rs::prelude::*;
+use dim_rs::{prelude::*, vectorization::ModelParameters};
 use tokio;
 use anyhow::{Error, Result};
 use async_openai;
@@ -47,11 +47,12 @@ async fn main() -> Result<(), Error> {
 
     // Vectorize all texts
     for vector in &mut vectors {
+        let model_parameters = ModelParameters::new("minicpm-v".to_string(), None, None);
         vectorize_string_concurrently(
-            "minicpm-v",
             prompts.clone(),
             vector,
-            client.clone()
+            client.clone(),
+            model_parameters
         ).await?;
     }
 

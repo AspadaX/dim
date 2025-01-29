@@ -1,4 +1,4 @@
-use dim_rs::prelude::*;
+use dim_rs::{prelude::*, vectorization::ModelParameters};
 use tokio;
 use anyhow::{Error, Result};
 use async_openai;
@@ -36,11 +36,12 @@ async fn main() -> Result<(), Error> {
     ];
 
     // Vectorize image
+    let model_parameters = ModelParameters::new("minicpm-v".to_string(), None, None);
     vectorize_string_concurrently(
-        "minicpm-v",
         prompts,
         &mut vector, 
-        client
+        client,
+        model_parameters
     ).await?;
 
     // Print vectorized result
