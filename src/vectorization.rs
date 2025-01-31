@@ -5,6 +5,7 @@ use async_openai::{config::Config, types::{ChatCompletionRequestMessageContentPa
 use base64::prelude::*;
 use futures::future::join_all;
 use image::DynamicImage;
+use log::{error, info, warn};
 use rand::Rng;
 use serde_json::Value;
 
@@ -44,15 +45,15 @@ impl ModelParameters {
             seed,
         }
     }
-    
+
     pub fn get_model(&self) -> String {
         self.model.clone()
     }
-    
+
     pub fn get_temperature(&self) -> f32 {
         self.temperature
     }
-    
+
     pub fn get_seed(&self) -> i64 {
         self.seed
     }
@@ -99,24 +100,24 @@ fn extract_leaf_values_recursively(value: &Value) -> Vec<Value> {
 ///
 /// # Returns 
 /// * `bool` - True if vector meets all validation criteria, false otherwise
-fn validate_vectorization_result(vector: &Vec<f32>) -> bool {
-    // Return false if vector is empty
-    if vector.len() < 1 {
-        return false;
+fn validate_vectorization_result(vector: &Vec<f32>) -> Result<(), Error> {
+    // Return error if vector is empty
+    if vector.is_empty() {
+        return Err(Error::msg("Validation error: vector is empty"));
     // Check if vector has more than one element
     } else if vector.len() > 1 {
-        return false;
+        return Err(Error::msg("Validation error: vector has more than one element"));
     }
 
     // Check if any elements are negative
     for element in vector {
-        if element < &0.0 {
-            return false;
+        if *element < 0.0 {
+            return Err(Error::msg("Validation error: vector contains negative elements"));
         }
     }
 
     // All validation checks passed
-    true
+    Ok(())
 }
 
 /// Processes a single image with one prompt to generate a vector representation.
@@ -166,7 +167,7 @@ where
         {
             Ok(req) => req,
             Err(e) => {
-                eprintln!("Failed to build request: {}", e);
+                error!("Failed to build request: {}", e);
                 continue;
             }
         };
@@ -174,7 +175,7 @@ where
         let response = match client.chat().create(request).await {
             Ok(res) => res,
             Err(e) => {
-                eprintln!("API request error: {}", e);
+                error!("API request error: {}", e);
                 continue;
             }
         };
@@ -182,7 +183,7 @@ where
         let content = match response.choices.get(0).and_then(|c| c.message.content.as_ref()) {
             Some(c) => c,
             None => {
-                eprintln!("Empty content in response");
+                warn!("Empty content in response");
                 continue;
             }
         };
@@ -190,7 +191,7 @@ where
         let parsed_json = match serde_json::from_str::<Value>(content) {
             Ok(v) => v,
             Err(e) => {
-                eprintln!("JSON parsing failed: {}", e);
+                error!("JSON parsing failed: {}", e);
                 continue;
             }
         };
@@ -201,10 +202,10 @@ where
             .filter_map(|v| v.as_f64().map(|f| f as f32))
             .collect();
 
-        if validate_vectorization_result(&result) {
-            return Ok(result);
+        if let Err(e) = validate_vectorization_result(&result) {
+            warn!("Validation failed: {}, retrying...", e);
         } else {
-            eprintln!("Validation failed, retrying...");
+            return Ok(result);
         }
     }
 }
@@ -254,7 +255,7 @@ where
                 shared_model.as_ref(),
             )
                 .await?;
-            println!("thread {index} finished vectorization.");
+            info!("thread {index} finished vectorization.");
 
             Ok::<_, Error>(subvector)
         });
@@ -304,7 +305,7 @@ where
         {
             Ok(req) => req,
             Err(e) => {
-                eprintln!("Failed to build request: {}", e);
+                error!("Failed to build request: {}", e);
                 continue;
             }
         };
@@ -312,7 +313,7 @@ where
         let response = match client.chat().create(request).await {
             Ok(res) => res,
             Err(e) => {
-                eprintln!("API request error: {}", e);
+                error!("API request error: {}", e);
                 continue;
             }
         };
@@ -320,7 +321,7 @@ where
         let content = match response.choices.get(0).and_then(|c| c.message.content.as_ref()) {
             Some(c) => c,
             None => {
-                eprintln!("Empty content in response");
+                warn!("Empty content in response");
                 continue;
             }
         };
@@ -328,7 +329,7 @@ where
         let parsed_json = match serde_json::from_str::<Value>(content) {
             Ok(v) => v,
             Err(e) => {
-                eprintln!("JSON parsing failed: {}", e);
+                error!("JSON parsing failed: {}", e);
                 continue;
             }
         };
@@ -339,10 +340,10 @@ where
             .filter_map(|v| v.as_f64().map(|f| f as f32))
             .collect();
 
-        if validate_vectorization_result(&result) {
-            return Ok(result);
+        if let Err(e) = validate_vectorization_result(&result) {
+            warn!("Validation failed: {}, retrying...", e);
         } else {
-            eprintln!("Validation failed, retrying...");
+            return Ok(result);
         }
     }
 }
@@ -388,7 +389,7 @@ where
                 shared_model.as_ref(),
             )
                 .await?;
-            println!("thread {index} finished vectorization.");
+            info!("thread {index} finished vectorization.");
 
             Ok::<_, Error>(subvector)
         });

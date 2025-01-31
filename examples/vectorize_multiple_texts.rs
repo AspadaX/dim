@@ -17,6 +17,16 @@ async fn main() -> Result<(), Error> {
         "Exercise regularly for better physical and mental health.".to_string(),
         "Learning a new language opens doors to different cultures.".to_string(),
         "Time management is essential for productivity.".to_string(),
+        "Reading books can expand your knowledge and imagination.".to_string(),
+        "Traveling allows you to experience new perspectives.".to_string(),
+        "Cooking at home can be both fun and healthy.".to_string(),
+        "Meditation helps in reducing stress and improving focus.".to_string(),
+        "Gardening is a relaxing and rewarding hobby.".to_string(),
+        "Volunteering can make a positive impact on your community.".to_string(),
+        "Photography captures moments and memories.".to_string(),
+        "Writing in a journal can help clarify your thoughts.".to_string(),
+        "Playing board games is a great way to bond with family and friends.".to_string(),
+        "Learning to play a musical instrument can be very fulfilling.".to_string(),
     ];
     
     // Create Vector objects from the texts
@@ -47,7 +57,7 @@ async fn main() -> Result<(), Error> {
 
     // Vectorize all texts
     for vector in &mut vectors {
-        let model_parameters = ModelParameters::new("minicpm-v".to_string(), None, None);
+        let model_parameters = ModelParameters::new("mistral".to_string(), None, None);
         vectorize_string_concurrently(
             prompts.clone(),
             vector,
