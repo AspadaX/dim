@@ -204,6 +204,7 @@ where
         if let Err(e) = validate_vectorization_result(&result) {
             println!("Validation failed: {}, retrying...", e);
             println!("Prompt: {}", prompt);
+            println!("Result: {}", &parsed_json);
             println!("Output: {:?}", result);
         } else {
             return Ok(result);
