@@ -346,6 +346,7 @@ where
             println!("Validation failed: {}, retrying...", e);
             println!("Prompt: {}", prompt);
             println!("Text: {}", text);
+            println!("Result: {}", &parsed_json);
             println!("Output: {:?}", result);
         } else {
             return Ok(result);
