@@ -203,7 +203,11 @@ where
 
         if let Err(e) = validate_vectorization_result(&result) {
             println!("Validation failed: {}, retrying...", e);
+            println!("Prompt: {}", prompt);
+            println!("Output: {:?}", result);
         } else {
+            println!("Prompt: {}", prompt);
+            println!("Output: {:?}", result);
             return Ok(result);
         }
     }
@@ -341,7 +345,11 @@ where
 
         if let Err(e) = validate_vectorization_result(&result) {
             println!("Validation failed: {}, retrying...", e);
+            println!("Prompt: {}", prompt);
+            println!("Output: {:?}", result);
         } else {
+            println!("Prompt: {}", prompt);
+            println!("Output: {:?}", result);
             return Ok(result);
         }
     }
