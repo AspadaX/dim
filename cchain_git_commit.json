@@ -1,0 +1,26 @@
+[
+  {
+    "command": "git",
+    "arguments": [
+      "add",
+      "--all"
+    ],
+    "retry": 1
+  },
+  {
+    "command": "git",
+    "arguments": [
+      "commit",
+      "-m",
+      "bug fixes"
+    ],
+    "retry": 1
+  },
+  {
+    "command": "git",
+    "arguments": [
+      "push"
+    ],
+    "retry": 1
+  }
+]

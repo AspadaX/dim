@@ -13,7 +13,7 @@ use crate::vector::{Vector, VectorOperations};
 pub struct ModelParameters {
     model: String,
     temperature: f32,
-    seed: i64,
+    seed: Option<i64>,
 }
 
 impl ModelParameters {
@@ -32,12 +32,8 @@ impl ModelParameters {
     /// If `temperature` is not provided, it defaults to 0.0.
     /// If `seed` is not provided, a random seed is generated.
     pub fn new(model: String, temperature: Option<f32>, seed: Option<i64>) -> Self {
-        let temperature: f32 = temperature.unwrap_or(0.0);
-        let seed: i64 = seed.unwrap_or_else(|| {
-            let mut rng = rand::rng();
-            rng.random()
-        });
-
+        let temperature: f32 = temperature.unwrap_or(1.0);
+        
         Self {
             model,
             temperature,
@@ -54,7 +50,12 @@ impl ModelParameters {
     }
 
     pub fn get_seed(&self) -> i64 {
-        self.seed
+        let mut rng: rand::prelude::ThreadRng = rand::rng();
+        if let Some(seed) = self.seed {
+            seed
+        } else {
+            rng.random()
+        }
     }
 }
 
